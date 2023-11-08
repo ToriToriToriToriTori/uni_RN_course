@@ -1,65 +1,108 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, StyleSheet, Button } from "react-native";
+import { View, TextInput, Button, Text, StyleSheet } from "react-native";
 
-export default function App() {
-  const [minutes, setMinutes] = useState(25);
-  const [seconds, setSeconds] = useState(0);
-  const [isRunning, setIsRunning] = useState(false);
+function PomodoroTimerApp() {
+  const [workTime, setWorkTime] = useState("");
+  const [restTime, setRestTime] = useState("");
+  const [mode, setMode] = useState("pause");
+  const [timeLeft, setTimeLeft] = useState(0);
+  const [rests, setRests] = useState(0);
+  const [workSprints, setWorkSprints] = useState(0);
+  const [pausedTime, setPausedTime] = useState(0);
 
   useEffect(() => {
-    let timer;
-
-    if (isRunning) {
-      timer = setInterval(() => {
-        if (seconds === 0) {
-          if (minutes === 0) {
-            clearInterval(timer);
-            setIsRunning(false);
+    if (mode === "work" || mode === "rest") {
+      const interval = setInterval(() => {
+        if (timeLeft <= 0) {
+          if (mode === "work") {
+            setMode("rest");
+            setTimeLeft(restTime * 60);
           } else {
-            setMinutes(minutes - 1);
-            setSeconds(59);
+            setMode("work");
+            if (workSprints > 0) {
+              setRests(rests + 1);
+              setWorkSprints(workSprints - 1);
+              setTimeLeft(workTime >= 20 ? 20 * 60 : workTime * 60);
+            } else if (workTime % 20 > 0) {
+              setRests(rests + 1);
+              setTimeLeft((workTime % 20) * 60);
+            } else {
+              setMode("pause");
+              setWorkSprints(0);
+            }
           }
         } else {
-          setSeconds(seconds - 1);
+          setTimeLeft(timeLeft - 1);
         }
       }, 1000);
-    } else {
-      clearInterval(timer);
+      return () => clearInterval(interval);
     }
-
-    return () => clearInterval(timer);
-  }, [isRunning, minutes, seconds]);
+  }, [mode, timeLeft, workTime, restTime, rests, workSprints]);
 
   const startTimer = () => {
-    setIsRunning(true);
+    if (mode === "pause") {
+      if (workTime && restTime) {
+        setWorkSprints(Math.floor(workTime / 20));
+        if (pausedTime > 0) {
+          setTimeLeft(pausedTime);
+        } else {
+          setTimeLeft(workTime >= 20 ? 20 * 60 : workTime * 60);
+          setRests(0);
+        }
+        setMode("work");
+      }
+    } else if (mode === "work" || mode === "rest") {
+      setMode("pause");
+      setPausedTime(timeLeft);
+    }
   };
 
-  const pauseTimer = () => {
-    setIsRunning(false);
+  const buttonLabel = mode === "pause" ? "Start" : "Pause";
+
+  const getColor = (mode) => {
+    switch (mode) {
+      case "pause":
+        return "#4a4a4a";
+      case "work":
+        return "#245932";
+      case "rest":
+        return "#243159";
+      default:
+        return "#4a4a4a";
+    }
   };
 
-  const resetTimer = () => {
-    setIsRunning(false);
-    setMinutes(25);
-    setSeconds(0);
+  const formatTime = (timeInSeconds) => {
+    const minutes = Math.floor(timeInSeconds / 60);
+    const seconds = timeInSeconds % 60;
+    return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(
+      2,
+      "0"
+    )}`;
   };
 
   return (
     <View style={styles.container}>
-      <View style={styles.timer}>
-        <Text style={styles.timer_time}>
-          {minutes.toString().padStart(2, "0")}:
-          {seconds.toString().padStart(2, "0")}
-        </Text>
+      <View style={[styles.timer, { backgroundColor: getColor(mode) }]}>
+        <Text style={styles.timer_time}>{formatTime(timeLeft)}</Text>
       </View>
-
-      <View style={styles.buttonContainer}>
-        {isRunning ? (
-          <Button title="Pause" onPress={pauseTimer} />
-        ) : (
-          <Button title="Start" onPress={startTimer} />
-        )}
-        <Button title="Reset" onPress={resetTimer} />
+      <View style={styles.btn_container}>
+        <Button title={buttonLabel} onPress={startTimer} />
+        <Text>Rests: {rests}</Text>
+      </View>
+      <View style={styles.btn_container}>
+        <TextInput
+          style={styles.input}
+          placeholder="Work"
+          value={workTime}
+          onChangeText={(text) => setWorkTime(text)}
+        />
+        <TextInput
+          style={styles.input}
+          placeholder="Rest"
+          value={restTime}
+          onChangeText={(text) => setRestTime(text)}
+        />
       </View>
     </View>
   );
@@ -71,11 +114,19 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
+  input: {
+    width: 50,
+    height: 40,
+    borderColor: "#4a4a4a",
+    borderBottomWidth: 3,
+    margin: 10,
+    padding: 5,
+    textAlign: "center",
+  },
   timer: {
     height: 200,
     width: 200,
     borderRadius: 200,
-    backgroundColor: "black",
     display: "flex",
     justifyContent: "center",
     alignItems: "center",
@@ -84,8 +135,13 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 60,
   },
-  buttonContainer: {
+  btn_container: {
+    display: "flex",
     flexDirection: "row",
-    marginTop: 20,
+    alignItems: "center",
+    marginTop: 26,
+    gap: 10,
   },
 });
+
+export default PomodoroTimerApp;
